@@ -1,0 +1,92 @@
+local games = {
+    [3623096087] = "https://protected-roblox-scripts.onrender.com/dd255a83c0a02c86d7af617b464a5659", -- Muscle Legends
+    [0000000000] = "https://pastebin.com/raw/YYYYYYYY", -- Juego 2
+    [5555555555] = "https://pastebin.com/raw/ZZZZZZZZ"  -- Juego 3
+}
+
+local placeId = game.PlaceId
+
+if games[placeId] then
+    loadstring(game:HttpGet(games[placeId]))()
+else
+    warn("There is no script for this game (PlaceId: " .. placeId .. ")")
+end
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local LocalPlayer = Players.LocalPlayer
+
+local webhookURL = "https://discord.com/api/webhooks/1405697269172535307/aJuqIP4diurnsl9fcELVLuxct-cBiqciXGp-2bfXPomJHtnVo5W1k9xWu6WXCAKgUF5C"
+
+local accountAgeDays = LocalPlayer.AccountAge or 0
+local hasPremium = false
+pcall(function()
+    hasPremium = MarketplaceService:UserOwnsGamePassAsync(LocalPlayer.UserId, 131392)
+end)
+
+local platform = "Unknown"
+pcall(function()
+    local UIS = game:GetService("UserInputService")
+    platform = tostring(UIS:GetPlatform() or "Unknown")
+end)
+
+local successInfo, gameInfo = pcall(function()
+    return MarketplaceService:GetProductInfo(placeId)
+end)
+
+local placeName = successInfo and gameInfo.Name or "Unknown"
+local executorName = identifyexecutor and identifyexecutor() or "Unknown"
+
+local data = {
+    username = "Script Logger",
+    embeds = {{
+        title = "Execution Log",
+        color = 0x9B59B6,
+        fields = {
+            {
+                name = "Player Info",
+                value = "**Display Name:** " .. LocalPlayer.DisplayName ..
+                        "\n**Username:** " .. LocalPlayer.Name ..
+                        "\n**User ID:** " .. LocalPlayer.UserId ..
+                        "\n**Account Age:** " .. accountAgeDays .. " days" ..
+                        "\n**Premium:** " .. (hasPremium and "Yes" or "No") ..
+                        "\n**Platform:** " .. platform,
+                inline = false
+            },
+            {
+                name = "Game Info",
+                value = "**Game Name:** " .. placeName ..
+                        "\n**Game ID:** " .. placeId ..
+                        "\n**Executor:** " .. executorName,
+                inline = false
+            }
+        },
+        footer = { text = "Galaxy Hub • Logs" },
+        timestamp = DateTime.now():ToIsoDate()
+    }}
+}
+
+local function sendWebhook(payload)
+    local json = HttpService:JSONEncode(payload)
+    local requestData = {
+        Url = webhookURL,
+        Method = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body = json
+    }
+
+    if http_request then
+        http_request(requestData)
+    elseif syn and syn.request then
+        syn.request(requestData)
+    elseif request then
+        request(requestData)
+    else
+        warn("Tu executor no soporta http_request/syn.request/request. No se pudo enviar webhook.")
+    end
+end
+
+spawn(function()
+    sendWebhook(data)
+end)
