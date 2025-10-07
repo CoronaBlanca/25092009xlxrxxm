@@ -1,6 +1,6 @@
 -- Blacklist de jugadores por UserId
 local blacklist = {
-    [9591633576] = true, -- jugador 1
+    [0000000000] = true, -- jugador 1
     [0000000000] = true, -- jugador 2
 }
 
