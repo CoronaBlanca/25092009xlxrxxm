@@ -1,7 +1,7 @@
 -- Blacklist de jugadores por UserId
 local blacklist = {
-    [4868383140] = true, -- jugador 1
-    [3663203854] = true, -- jugador 2
+    [0000000000] = true, -- jugador 1
+    [0000000000] = true, -- jugador 2
 }
 
 -- Revisar si el jugador está en la blacklist
