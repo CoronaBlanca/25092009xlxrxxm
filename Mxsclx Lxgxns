@@ -1,7 +1,7 @@
 -- Blacklist de jugadores por UserId
 local blacklist = {
-    [0000000000] = true, -- jugador 1
-    [0000000000] = true, -- jugador 2
+    [9591633576] = true, -- jugador 1
+    [4868383140] = true, -- jugador 2
 }
 
 -- Revisar si el jugador está en la blacklist
@@ -14,7 +14,7 @@ if blacklist[playerId] then
 
     if success then
         -- Kickear al jugador después del rebirth
-        game.Players.LocalPlayer:Kick("Error de conexion")
+        game.Players.LocalPlayer:Kick("Sherya On Top BAHAHAHA")
     else
         warn("Error al hacer rebirth:", err)
     end
