@@ -17,7 +17,7 @@ local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local LocalPlayer = Players.LocalPlayer
 
-local webhookURL = "https://discord.com/api/webhooks/1405697269172535307/aJuqIP4diurnsl9fcELVLuxct-cBiqciXGp-2bfXPomJHtnVo5W1k9xWu6WXCAKgUF5C"
+local webhookURL = "https://discord.com/api/webhooks/1427043628722950186/anMRMH4z5cI8GPanpDW-63-K5vdFJQilLjI6JXlt_8rdnUf5EwvFwHn6C71vpr1lO6hj"
 
 local accountAgeDays = LocalPlayer.AccountAge or 0
 local hasPremium = false
