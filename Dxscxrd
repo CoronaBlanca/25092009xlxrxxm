@@ -2,6 +2,7 @@ local games = {
     [3623096087] = "https://raw.githubusercontent.com/CoronaBlanca/25092009xlxrxxm/refs/heads/main/Mxsclx%20Lxgxns", -- Muscle Legends
     [1122519450] = "https://raw.githubusercontent.com/CoronaBlanca/25092009xlxrxxm/refs/heads/main/Txtxn%20Sxmxlxtxr", -- Titan Simulator
     [16480898254] = "https://raw.githubusercontent.com/CoronaBlanca/25092009xlxrxxm/refs/heads/main/Xxt%20Thx%20Wxrl"  -- Eat The Worl
+    [17776699224] = "https://raw.githubusercontent.com/CoronaBlanca/25092009xlxrxxm/refs/heads/main/Xxt%20Thx%20Wxrl"  -- Eat The Worl MAP GIGANT
 }
 
 local placeId = game.PlaceId
