@@ -30,64 +30,91 @@ local window = library:AddWindow(title, {
 local mainTab = window:AddTab("Main")
 
 mainTab:AddLabel("Welcome To Galaxy Hub >_<").TextSize  = 26
-mainTab:AddLabel("Simple Farm")
+mainTab:AddLabel("-----{Simple Farm}-----")
 
--- 🟣 Auto Walk Random (sin folder)
+-- 🟣 Auto Walk Infinite + Auto Click (sin folder)
 local player = game.Players.LocalPlayer
-local humanoid = nil
+local humanoid
 local autoWalkEnabled = false
 local autoWalkConnection
+local walkSpeedBoost = 50 -- ⚡ Velocidad personalizada (puedes cambiarlo)
 
--- 🧠 Función para obtener una dirección aleatoria
+-- 🧠 Dirección aleatoria infinita
 local function getRandomDirection()
-    local randomX = math.random(-1, 1)
-    local randomZ = math.random(-1, 1)
-    local direction = Vector3.new(randomX, 0, randomZ)
-    if direction.Magnitude == 0 then
-        direction = Vector3.new(0, 0, 1)
-    end
-    return direction.Unit
+    local x = math.random(-1, 1)
+    local z = math.random(-1, 1)
+    if x == 0 and z == 0 then x = 1 end
+    return Vector3.new(x, 0, z).Unit
 end
 
--- 🚶‍♂️ Movimiento aleatorio constante
+-- 🚶‍♂️ Movimiento infinito
 local function startAutoWalk()
     while autoWalkEnabled do
         pcall(function()
-            if player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
-                humanoid = player.Character.Humanoid
-                local root = player.Character.HumanoidRootPart
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                humanoid = char:FindFirstChild("Humanoid")
+                local root = char.HumanoidRootPart
 
-                -- Calcular dirección aleatoria y punto a moverse
-                local direction = getRandomDirection()
-                local distance = math.random(10, 30)
-                local moveToPos = root.Position + direction * distance
+                -- 🔄 Ajustar velocidad personalizada
+                humanoid.WalkSpeed = walkSpeedBoost
 
-                humanoid:MoveTo(moveToPos)
+                -- 📍 Nueva dirección aleatoria infinita
+                local dir = getRandomDirection()
+                local distance = math.random(30, 60)
+                humanoid:MoveTo(root.Position + dir * distance)
             end
         end)
-        task.wait(math.random(3, 6)) -- Intervalo entre movimientos
+        task.wait(0.1) -- no se detiene nunca
     end
 end
 
--- 🔄 Switch principal en miscTab
-mainTab:AddSwitch("Auto Walk Random", function(bool)
-    autoWalkEnabled = bool
+-- 🖱️ Click automático universal
+local function startAutoClick()
+    while autoWalkEnabled do
+        pcall(function()
+            -- 🔘 Simula clic izquierdo
+            game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
 
-    if autoWalkEnabled then
-        if player.Character then
-            humanoid = player.Character:WaitForChild("Humanoid")
-        end
+            -- 💥 También intenta ejecutar animación de “click” si existe
+            local char = player.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum:FindFirstChild("Animator") then
+                    local animator = hum:FindFirstChild("Animator")
+                    for _, anim in pairs(animator:GetPlayingAnimationTracks()) do
+                        if string.find(anim.Name:lower(), "click") or string.find(anim.Name:lower(), "eat") then
+                            anim:Play()
+                        end
+                    end
+                end
+            end
+        end)
+        task.wait(0.05) -- velocidad de clic
+    end
+end
+
+-- 🔘 Switch principal
+mainTab:AddSwitch("Auto Walk Infinite + Click", function(state)
+    autoWalkEnabled = state
+
+    if state then
+        local char = player.Character or player.CharacterAdded:Wait()
+        humanoid = char:WaitForChild("Humanoid")
 
         -- Reconectar al respawn
         if autoWalkConnection then
             autoWalkConnection:Disconnect()
         end
-        autoWalkConnection = player.CharacterAdded:Connect(function(character)
-            humanoid = character:WaitForChild("Humanoid")
+        autoWalkConnection = player.CharacterAdded:Connect(function(newChar)
+            humanoid = newChar:WaitForChild("Humanoid")
+            humanoid.WalkSpeed = walkSpeedBoost
         end)
 
-        -- Iniciar movimiento automático
+        -- Iniciar movimiento y clicks infinitos
         task.spawn(startAutoWalk)
+        task.spawn(startAutoClick)
     else
         if autoWalkConnection then
             autoWalkConnection:Disconnect()
@@ -95,28 +122,91 @@ mainTab:AddSwitch("Auto Walk Random", function(bool)
         end
         if humanoid then
             humanoid:Move(Vector3.zero)
+            humanoid.WalkSpeed = 16 -- valor normal
         end
     end
 end)
 
--- 🟣 Auto Click (Elerium Style)
-local VirtualUser = game:GetService("VirtualUser")
-local autoClickEnabled = false
+-- 🟣 Auto TP Random + Auto Click (sin folder)
+local player = game.Players.LocalPlayer
+local humanoid
+local autoTPEnabled = false
+local autoTPConnection
+local mapRadius = 300 -- 📏 Radio máximo del mapa
+local tpDelay = 1 -- ⏱️ Intervalo entre teleports (puedes bajarlo)
+local walkSpeedBoost = 50 -- ⚡ Velocidad opcional si la quieres mantener
 
-mainTab:AddSwitch("Auto Click", function(bool)
-    autoClickEnabled = bool
+-- 📍 Función para generar una posición aleatoria en el mapa
+local function getRandomPosition()
+    local x = math.random(-mapRadius, mapRadius)
+    local z = math.random(-mapRadius, mapRadius)
+    local y = 10 -- altura por defecto, puedes ajustar
+    return Vector3.new(x, y, z)
+end
 
-    if autoClickEnabled then
-        task.spawn(function()
-            while autoClickEnabled do
-                pcall(function()
-                    VirtualUser:Button1Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-                    task.wait(0.1)
-                    VirtualUser:Button1Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-                end)
-                task.wait(0.1) -- velocidad del auto click (0.1 = 10 clicks por segundo aprox)
+-- 🔮 Teletransporte constante
+local function startAutoTP()
+    while autoTPEnabled do
+        pcall(function()
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                local newPos = getRandomPosition()
+                root.CFrame = CFrame.new(newPos)
             end
         end)
+        task.wait(tpDelay)
+    end
+end
+
+-- 🖱️ Auto click interno (seguro, no afecta pantalla)
+local function startAutoClick()
+    while autoTPEnabled do
+        pcall(function()
+            -- 🔘 Busca y dispara eventos comunes de interacción
+            local char = player.Character
+            if char and player:FindFirstChild("muscleEvent") then
+                -- Ejemplo: Eat The World o Muscle Legends
+                player.muscleEvent:FireServer("punch", "rightHand")
+                player.muscleEvent:FireServer("punch", "leftHand")
+            end
+
+            -- Si el juego usa otro evento, puedes agregarlo aquí:
+            -- workspace.ClickEvent:FireServer() 
+        end)
+        task.wait(0.05)
+    end
+end
+
+-- 🔘 Switch principal
+mainTab:AddSwitch("Auto TP Random + Click", function(state)
+    autoTPEnabled = state
+
+    if state then
+        local char = player.Character or player.CharacterAdded:Wait()
+        humanoid = char:WaitForChild("Humanoid")
+        humanoid.WalkSpeed = walkSpeedBoost
+
+        -- Reconectar al respawn
+        if autoTPConnection then
+            autoTPConnection:Disconnect()
+        end
+        autoTPConnection = player.CharacterAdded:Connect(function(newChar)
+            humanoid = newChar:WaitForChild("Humanoid")
+            humanoid.WalkSpeed = walkSpeedBoost
+        end)
+
+        -- Iniciar TP + Click infinito
+        task.spawn(startAutoTP)
+        task.spawn(startAutoClick)
+    else
+        if autoTPConnection then
+            autoTPConnection:Disconnect()
+            autoTPConnection = nil
+        end
+        if humanoid then
+            humanoid.WalkSpeed = 16 -- Valor normal
+        end
     end
 end)
 
