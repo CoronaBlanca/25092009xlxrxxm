@@ -45,179 +45,158 @@ TrollTab:AddLabel("Troll Scripts").TextSize = 24
 
 TrollTab:AddLabel("-----{Black Hole}-----")
 
-TrollTab:AddToggle({
-    Name = "Black Hole",
-    Description = "Activating this will pull parts towards your character",
-    Default = false,
-    Callback = function(Value)
-        getgenv().blackHoleActive = Value
-        
-        if Value then
-            -- Inicializar si es la primera vez
-            if not getgenv().BlackHoleInitialized then
-                local Players = game:GetService("Players")
-                local RunService = game:GetService("RunService")
-                local LocalPlayer = Players.LocalPlayer
-                local Workspace = game:GetService("Workspace")
+--// Servicios
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
 
-                getgenv().blackHoleAngle = 1
-                getgenv().blackHoleRadius = 10
-                getgenv().blackHoleSpeed = 2
+--// Variables principales
+local angle = 1
+local radius = 10
+local blackHoleActive = false
+local humanoidRootPart, Attachment1
 
-                local function setupPlayer()
-                    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-                    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+--// Función para inicializar al jugador
+local function setupPlayer()
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
-                    if getgenv().BlackHoleFolder then
-                        getgenv().BlackHoleFolder:Destroy()
-                    end
+    local Folder = Instance.new("Folder", Workspace)
+    Folder.Name = "BlackHoleFolder"
 
-                    local Folder = Instance.new("Folder", Workspace)
-                    getgenv().BlackHoleFolder = Folder
-                    local Part = Instance.new("Part", Folder)
-                    local Attachment1 = Instance.new("Attachment", Part)
-                    Part.Anchored = true
-                    Part.CanCollide = false
-                    Part.Transparency = 1
+    local Part = Instance.new("Part", Folder)
+    Part.Anchored = true
+    Part.CanCollide = false
+    Part.Transparency = 1
 
-                    getgenv().blackHoleAttachment = Attachment1
-                    getgenv().blackHoleRoot = humanoidRootPart
+    local Attachment1 = Instance.new("Attachment", Part)
 
-                    return humanoidRootPart, Attachment1
-                end
+    return humanoidRootPart, Attachment1
+end
 
-                getgenv().blackHoleRoot, getgenv().blackHoleAttachment = setupPlayer()
+humanoidRootPart, Attachment1 = setupPlayer()
 
-                if not getgenv().Network then
-                    getgenv().Network = {
-                        BaseParts = {},
-                        Velocity = Vector3.new(14.46262424, 14.46262424, 14.46262424)
-                    }
+--// Sistema de red
+if not getgenv().Network then
+    getgenv().Network = {
+        BaseParts = {},
+        Velocity = Vector3.new(14.4626, 14.4626, 14.4626)
+    }
 
-                    Network.RetainPart = function(part)
-                        if typeof(part) == "Instance" and part:IsA("BasePart") and part:IsDescendantOf(Workspace) then
-                            table.insert(Network.BaseParts, part)
-                            part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-                            part.CanCollide = false
-                        end
-                    end
-
-                    local function EnablePartControl()
-                        LocalPlayer.ReplicationFocus = Workspace
-                        RunService.Heartbeat:Connect(function()
-                            sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
-                            for _, part in pairs(Network.BaseParts) do
-                                if part:IsDescendantOf(Workspace) then
-                                    part.Velocity = Network.Velocity
-                                end
-                            end
-                        end)
-                    end
-
-                    EnablePartControl()
-                end
-
-                local function ForcePart(v)
-                    if v:IsA("Part") and not v.Anchored and not v.Parent:FindFirstChild("Humanoid") and not v.Parent:FindFirstChild("Head") and v.Name ~= "Handle" then
-                        for _, x in next, v:GetChildren() do
-                            if x:IsA("BodyAngularVelocity") or x:IsA("BodyForce") or x:IsA("BodyGyro") or x:IsA("BodyPosition") or x:IsA("BodyThrust") or x:IsA("BodyVelocity") or x:IsA("RocketPropulsion") then
-                                x:Destroy()
-                            end
-                        end
-                        if v:FindFirstChild("Attachment") then
-                            v:FindFirstChild("Attachment"):Destroy()
-                        end
-                        if v:FindFirstChild("AlignPosition") then
-                            v:FindFirstChild("AlignPosition"):Destroy()
-                        end
-                        if v:FindFirstChild("Torque") then
-                            v:FindFirstChild("Torque"):Destroy()
-                        end
-                        v.CanCollide = false
-                        
-                        local Torque = Instance.new("Torque", v)
-                        Torque.Torque = Vector3.new(1000000, 1000000, 1000000)
-                        local AlignPosition = Instance.new("AlignPosition", v)
-                        local Attachment2 = Instance.new("Attachment", v)
-                        Torque.Attachment0 = Attachment2
-                        AlignPosition.MaxForce = math.huge
-                        AlignPosition.MaxVelocity = math.huge
-                        AlignPosition.Responsiveness = 500
-                        AlignPosition.Attachment0 = Attachment2
-                        AlignPosition.Attachment1 = getgenv().blackHoleAttachment
-                    end
-                end
-
-                getgenv().ForcePart = ForcePart
-
-                -- Aplicar a partes existentes
-                for _, v in next, Workspace:GetDescendants() do
-                    ForcePart(v)
-                end
-
-                -- Conectar a nuevas partes
-                getgenv().blackHoleConnection = Workspace.DescendantAdded:Connect(function(v)
-                    if getgenv().blackHoleActive then
-                        ForcePart(v)
-                    end
-                end)
-
-                -- Loop de rotación
-                spawn(function()
-                    while true do
-                        RunService.RenderStepped:Wait()
-                        if getgenv().blackHoleActive and getgenv().blackHoleRoot and getgenv().blackHoleAttachment then
-                            getgenv().blackHoleAngle = getgenv().blackHoleAngle + math.rad(getgenv().blackHoleSpeed)
-
-                            local offsetX = math.cos(getgenv().blackHoleAngle) * getgenv().blackHoleRadius
-                            local offsetZ = math.sin(getgenv().blackHoleAngle) * getgenv().blackHoleRadius
-
-                            getgenv().blackHoleAttachment.WorldCFrame = getgenv().blackHoleRoot.CFrame * CFrame.new(offsetX, 0, offsetZ)
-                        end
-                    end
-                end)
-
-                -- Reconectar al morir
-                LocalPlayer.CharacterAdded:Connect(function()
-                    wait(1)
-                    getgenv().blackHoleRoot, getgenv().blackHoleAttachment = setupPlayer()
-                    if getgenv().blackHoleActive then
-                        for _, v in next, Workspace:GetDescendants() do
-                            ForcePart(v)
-                        end
-                    end
-                end)
-
-                getgenv().BlackHoleInitialized = true
-            end
-        else
-            -- Desactivar black hole
-            if getgenv().blackHoleAttachment then
-                getgenv().blackHoleAttachment.WorldCFrame = CFrame.new(0, -1000, 0)
-            end
+    Network.RetainPart = function(part)
+        if typeof(part) == "Instance" and part:IsA("BasePart") and part:IsDescendantOf(Workspace) then
+            table.insert(Network.BaseParts, part)
+            part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+            part.CanCollide = false
         end
     end
-})
 
-TrollTab:AddSlider({
-    Name = "Black Hole Radius",
-    Description = "Adjust the radius of the black hole orbit",
-    Min = 1,
-    Max = 100,
-    Default = 10,
-    Callback = function(Value)
-        getgenv().blackHoleRadius = Value
+    local function EnablePartControl()
+        LocalPlayer.ReplicationFocus = Workspace
+        RunService.Heartbeat:Connect(function()
+            pcall(function()
+                sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+            end)
+            for _, part in pairs(Network.BaseParts) do
+                if part:IsDescendantOf(Workspace) then
+                    part.Velocity = Network.Velocity
+                end
+            end
+        end)
     end
-})
 
-TrollTab:AddSlider({
-    Name = "Black Hole Speed",
-    Description = "Adjust the rotation speed of the black hole",
-    Min = 0.5,
-    Max = 10,
-    Default = 2,
-    Increment = 0.5,
-    Callback = function(Value)
-        getgenv().blackHoleSpeed = Value
+    EnablePartControl()
+end
+
+--// Función que aplica fuerza a las partes cercanas
+local function ForcePart(v)
+    if v:IsA("Part") and not v.Anchored and not v.Parent:FindFirstChild("Humanoid") and not v.Parent:FindFirstChild("Head") and v.Name ~= "Handle" then
+        for _, x in next, v:GetChildren() do
+            if x:IsA("BodyAngularVelocity") or x:IsA("BodyForce") or x:IsA("BodyGyro")
+                or x:IsA("BodyPosition") or x:IsA("BodyThrust") or x:IsA("BodyVelocity")
+                or x:IsA("RocketPropulsion") then
+                x:Destroy()
+            end
+        end
+
+        for _, obj in next, {"Attachment", "AlignPosition", "Torque"} do
+            local found = v:FindFirstChild(obj)
+            if found then found:Destroy() end
+        end
+
+        v.CanCollide = false
+        local Torque = Instance.new("Torque", v)
+        Torque.Torque = Vector3.new(1e6, 1e6, 1e6)
+
+        local AlignPosition = Instance.new("AlignPosition", v)
+        local Attachment2 = Instance.new("Attachment", v)
+
+        Torque.Attachment0 = Attachment2
+        AlignPosition.MaxForce = math.huge
+        AlignPosition.MaxVelocity = math.huge
+        AlignPosition.Responsiveness = 500
+        AlignPosition.Attachment0 = Attachment2
+        AlignPosition.Attachment1 = Attachment1
     end
-})
+end
+
+--// Alternar Black Hole
+local function toggleBlackHole(state)
+    blackHoleActive = state
+
+    if blackHoleActive then
+        for _, v in next, Workspace:GetDescendants() do
+            ForcePart(v)
+        end
+
+        Workspace.DescendantAdded:Connect(function(v)
+            if blackHoleActive then
+                ForcePart(v)
+            end
+        end)
+
+        task.spawn(function()
+            while blackHoleActive and RunService.RenderStepped:Wait() do
+                angle += math.rad(2)
+                local offsetX = math.cos(angle) * radius
+                local offsetZ = math.sin(angle) * radius
+                Attachment1.WorldCFrame = humanoidRootPart.CFrame * CFrame.new(offsetX, 0, offsetZ)
+            end
+        end)
+    else
+        Attachment1.WorldCFrame = CFrame.new(0, -1000, 0)
+    end
+end
+
+--// Reconfigurar al reaparecer
+LocalPlayer.CharacterAdded:Connect(function()
+    humanoidRootPart, Attachment1 = setupPlayer()
+    if blackHoleActive then
+        toggleBlackHole(true)
+    end
+end)
+
+--// UI para Elerium v2
+local blackHoleSwitch = TrollTab:AddSwitch("Black Hole", function(state)
+    toggleBlackHole(state)
+    if state then
+        EleriumNotify("Black Hole", "Activated", 3)
+    else
+        EleriumNotify("Black Hole", "Deactivated", 3)
+    end
+end)
+
+local radiusSlider = TrollTab:AddSlider("Black Hole Radius", 1, 100, 10, function(Value)
+    radius = Value
+end)
+
+--// Rotación continua (solo para suavidad)
+task.spawn(function()
+    while true do
+        RunService.RenderStepped:Wait()
+        if blackHoleActive then
+            angle += math.rad(2)
+        end
+    end
+end)
