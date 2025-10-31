@@ -1,17 +1,17 @@
--- Galaxy Hub (estilo Lunar Hub) - Script completo
--- Compatible con Delta / Fluxus / Arceus X / Hydrogen, etc.
--- Hecho con Instance.new y TweenService. Sin librerías externas.
+-- Galaxy Hub (estilo Lunar Hub) - Versión avanzada
+-- Compatible con Delta / Fluxus / Arceus X / Hydrogen...
+-- Hecho con Instance.new y TweenService. Sin libs externas.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- ---------- CONFIG (edítalo aquí) ----------
+-- ================= CONFIG (edítalo aquí) =================
 local DISCORD_LINK = "https://discord.gg/zYrg2qPjTp"
 
--- Texto que aparecerá en Galaxy Updates (edítalo aqui)
 local UPDATES_TEXT = [[
 ⭐ Bienvenido a Galaxy Hub!
 
@@ -24,52 +24,82 @@ local UPDATES_TEXT = [[
 (Desliza para ver más...)
 ]]
 
--- Nombres de botones en Librarys (los scripts los agregarás tú dentro de los callbacks)
+-- Nombres de botones
 local LIB_BUTTONS = {"Elerium", "Fluent", "Tottack", "Galaxy"}
--- ---------- FIN CONFIG ----------
 
--- Helper: crea instancias con propiedades
+-- Aquí colocas el código que quieres ejecutar por cada botón.
+-- Puedes usar 1) una función, o 2) una string con código y se ejecutará con loadstring.
+-- Ejemplos (reemplaza el contenido de cada índice con tu script):
+local LIB_SCRIPTS = {
+    -- 1) Ejemplo con función:
+    function()
+        -- Ejemplo: print; reemplaza con tu script
+        print("Elerium script ejecutado")
+        -- Si tu script usa loadstring, puedes llamarlo aquí.
+    end,
+
+    -- 2) Ejemplo con string (se cargará con loadstring):
+    [[
+    -- Fluent script (ejemplo)
+    print("Fluent script ejecutado")
+    ]],
+
+    -- 3) Otro ejemplo como función
+    function()
+        print("Tottack script ejecutado")
+    end,
+
+    -- 4) Como string
+    [[
+    print("Galaxy script ejecutado")
+    ]]
+}
+-- ========================================================
+
+-- Helper crear instancias
 local function new(class, props)
     local obj = Instance.new(class)
-    if props then
-        for k,v in pairs(props) do obj[k] = v end
-    end
+    if props then for k,v in pairs(props) do obj[k] = v end end
     return obj
 end
 
--- Colores estilo Lunar Hub
+-- Colores (estilo Lunar Hub)
 local Colors = {
-    BG = Color3.fromRGB(18, 14, 26),        -- fondo
-    Panel = Color3.fromRGB(22, 18, 36),     -- panel oscuro
-    Accent = Color3.fromRGB(130, 90, 200),  -- morado neón
-    LightText = Color3.fromRGB(200, 180, 255),
-    ButtonHover = Color3.fromRGB(160, 120, 230)
+    BG = Color3.fromRGB(18,14,26),
+    Panel = Color3.fromRGB(22,18,36),
+    Accent = Color3.fromRGB(130,90,200),
+    LightText = Color3.fromRGB(200,180,255),
+    ButtonHover = Color3.fromRGB(160,120,230)
 }
 
--- Guarda referencias para cerrar/destruir
+-- Guarda referencias
 local gui = {}
 
--- ---------- CREAR UI ----------
+-- Crear UI
 local function createUI()
-    -- ScreenGui
+    -- eliminar si ya existe (evita duplicados)
+    local existing = PlayerGui:FindFirstChild("GalaxyHub_UI")
+    if existing then existing:Destroy() end
+
     local screenGui = new("ScreenGui", {Name = "GalaxyHub_UI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
     screenGui.Parent = PlayerGui
     gui.screenGui = screenGui
 
-    -- Black overlay (ligero) para enfocar
-    local overlay = new("Frame", {
+    -- overlay oscuro
+    local overlay = new("ImageButton", {
         Name = "Overlay",
         Parent = screenGui,
         BackgroundColor3 = Color3.new(0,0,0),
-        BackgroundTransparency = 0.5,
+        BackgroundTransparency = 0.6,
         Size = UDim2.new(1,0,1,0),
         Position = UDim2.new(0,0,0,0),
-        ZIndex = 1
+        AutoButtonColor = false,
     })
-    overlay.Visible = false
+    overlay.Image = ""
+    overlay.ZIndex = 1
     gui.overlay = overlay
 
-    -- Main frame (centrado)
+    -- main frame centrado
     local main = new("Frame", {
         Name = "Main",
         Parent = screenGui,
@@ -81,18 +111,11 @@ local function createUI()
         ZIndex = 2,
     })
     main.ClipsDescendants = true
+    new("UICorner", {Parent = main, CornerRadius = UDim.new(0,14)})
+    new("UIStroke", {Parent = main, Color = Colors.Accent, Thickness = 1.5, Transparency = 0.35})
     gui.main = main
 
-    -- Round corners
-    local mainCorner = new("UICorner", {CornerRadius = UDim.new(0, 14), Parent = main})
-    local mainStroke = new("UIStroke", {
-        Parent = main,
-        Color = Colors.Accent,
-        Thickness = 1.5,
-        Transparency = 0.4
-    })
-
-    -- Header (titulo y close)
+    -- Header
     local header = new("Frame", {
         Name = "Header",
         Parent = main,
@@ -101,7 +124,6 @@ local function createUI()
         Position = UDim2.new(0,0,0,0)
     })
     local title = new("TextLabel", {
-        Name = "Title",
         Parent = header,
         BackgroundTransparency = 1,
         Position = UDim2.new(0.02,0,0,8),
@@ -113,7 +135,7 @@ local function createUI()
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    -- Close button (X) arriba a la derecha
+    -- X cerrar
     local closeBtn = new("TextButton", {
         Name = "CloseBtn",
         Parent = header,
@@ -129,23 +151,17 @@ local function createUI()
         TextColor3 = Colors.LightText
     })
     new("UICorner", {Parent = closeBtn, CornerRadius = UDim.new(0,8)})
-    local closeStroke = new("UIStroke", {Parent = closeBtn, Color = Colors.Accent, Thickness = 1})
+    new("UIStroke", {Parent = closeBtn, Color = Colors.Accent, Thickness = 1})
+    gui.closeBtn = closeBtn
 
-    -- CONTENT: 3 columnas (Updates | Librarys | Discord)
-    local content = new("Frame", {
-        Name = "Content",
-        Parent = main,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0,0,0,48),
-        Size = UDim2.new(1,0,1,-48)
-    })
+    -- Content frame (3 columnas)
+    local content = new("Frame", {Parent = main, BackgroundTransparency = 1, Position = UDim2.new(0,0,0,48), Size = UDim2.new(1,0,1,-48)})
+    gui.content = content
 
-    -- column sizes
-    local colWidth = (1/3)
+    local colWidth = 1/3
 
-    -- 1) Galaxy Updates (scrollable)
+    -- ================= Galaxy Updates =================
     local updatesFrame = new("Frame", {
-        Name = "UpdatesFrame",
         Parent = content,
         BackgroundColor3 = Colors.BG,
         Position = UDim2.new(0,18,0,18),
@@ -155,7 +171,7 @@ local function createUI()
     new("UICorner", {Parent = updatesFrame, CornerRadius = UDim.new(0,12)})
     new("UIStroke", {Parent = updatesFrame, Color = Colors.Accent, Thickness = 1})
 
-    local updatesTitle = new("TextLabel", {
+    new("TextLabel", {
         Parent = updatesFrame,
         BackgroundTransparency = 1,
         Position = UDim2.new(0,12,0,8),
@@ -169,14 +185,13 @@ local function createUI()
 
     local scroll = new("ScrollingFrame", {
         Parent = updatesFrame,
-        Name = "Scroll",
         BackgroundTransparency = 1,
         Position = UDim2.new(0,10,0,40),
         Size = UDim2.new(1,-20,1,-50),
         CanvasSize = UDim2.new(0,0,0,0),
-        ScrollBarThickness = 6,
+        ScrollBarThickness = 6
     })
-    local scrollCorner = new("UICorner", {Parent = scroll, CornerRadius = UDim.new(0,8)})
+    new("UICorner", {Parent = scroll, CornerRadius = UDim.new(0,8)})
     local contentHolder = new("Frame", {Parent = scroll, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,0)})
     contentHolder.Name = "ContentHolder"
 
@@ -184,7 +199,7 @@ local function createUI()
         Parent = contentHolder,
         Name = "UpdatesLabel",
         BackgroundTransparency = 1,
-        Size = UDim2.new(1,0,0,0), -- Height ajustado luego por texto
+        Size = UDim2.new(1, -6, 0, 10),
         Position = UDim2.new(0,0,0,0),
         Text = UPDATES_TEXT,
         Font = Enum.Font.Gotham,
@@ -194,7 +209,6 @@ local function createUI()
         TextColor3 = Colors.LightText
     })
 
-    -- Ajusta CanvasSize según contenido
     updatesLabel:GetPropertyChangedSignal("TextBounds"):Connect(function()
         local tb = updatesLabel.TextBounds
         updatesLabel.Size = UDim2.new(1, -6, 0, tb.Y + 8)
@@ -202,9 +216,8 @@ local function createUI()
         scroll.CanvasSize = UDim2.new(0,0,0, tb.Y + 14)
     end)
 
-    -- 2) Librarys (botones)
+    -- ================= Librarys (botones) =================
     local libFrame = new("Frame", {
-        Name = "LibrarysFrame",
         Parent = content,
         BackgroundColor3 = Colors.BG,
         Position = UDim2.new(colWidth, 0, 0, 18),
@@ -214,7 +227,7 @@ local function createUI()
     new("UICorner", {Parent = libFrame, CornerRadius = UDim.new(0,12)})
     new("UIStroke", {Parent = libFrame, Color = Colors.Accent, Thickness = 1})
 
-    local libTitle = new("TextLabel", {
+    new("TextLabel", {
         Parent = libFrame,
         BackgroundTransparency = 1,
         Position = UDim2.new(0,12,0,8),
@@ -226,23 +239,19 @@ local function createUI()
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    local btnContainer = new("Frame", {
-        Parent = libFrame,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0,10,0,46),
-        Size = UDim2.new(1,-20,1,-56)
-    })
+    local btnContainer = new("Frame", {Parent = libFrame, BackgroundTransparency = 1, Position = UDim2.new(0,10,0,46), Size = UDim2.new(1,-20,1,-56)})
+    btnContainer.Name = "BtnContainer"
 
-    -- Crear 4 botones (vertical)
     local btnHeight = 48
     local spacing = 12
+
     for i, name in ipairs(LIB_BUTTONS) do
         local yPos = (i-1) * (btnHeight + spacing)
         local b = new("TextButton", {
             Parent = btnContainer,
             Name = "Btn_"..name,
-            Position = UDim2.new(0, 0, 0, yPos),
-            Size = UDim2.new(1, 0, 0, btnHeight),
+            Position = UDim2.new(0,0,0,yPos),
+            Size = UDim2.new(1,0,0,btnHeight),
             BackgroundColor3 = Color3.fromRGB(28,24,44),
             AutoButtonColor = false,
             Text = name,
@@ -253,7 +262,6 @@ local function createUI()
         new("UICorner", {Parent = b, CornerRadius = UDim.new(0,10)})
         new("UIStroke", {Parent = b, Color = Colors.Accent, Thickness = 1})
 
-        -- hover effect
         b.MouseEnter:Connect(function()
             TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = Colors.ButtonHover}):Play()
         end)
@@ -261,32 +269,40 @@ local function createUI()
             TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(28,24,44)}):Play()
         end)
 
-        -- Click - placeholder: el usuario añadirá su script aquí
+        -- Conexión: al click -> cerrar UI con animación y luego ejecutar script correspondiente
         b.MouseButton1Click:Connect(function()
-            -- Aquí puedes pegar tu script para cada botón. Ejemplo:
-            -- loadstring("print('Elerium script ejecutado')")()
-            -- Para seguridad, dejé vacío para que tú pegues tu código.
-            pcall(function()
-                -- Ejemplo de notificación visual
-                local notif = new("TextLabel", {
-                    Parent = b,
-                    AnchorPoint = Vector2.new(0.5,0.5),
-                    Position = UDim2.new(0.5,0.5,0,0),
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(0.95,0,0.9,0),
-                    Text = "Executing "..name.." ...",
-                    Font = Enum.Font.Gotham,
-                    TextSize = 14,
-                    TextColor3 = Colors.LightText
-                })
-                game:GetService("Debris"):AddItem(notif, 0.8)
-            end)
+            -- cerrar UI y ejecutar script en callback
+            local idx = i
+            local funcToRun = LIB_SCRIPTS[idx]
+            -- animamos cierre y luego ejecutamos
+            if gui and gui.animateClose then
+                gui.animateClose(function()
+                    -- ejecutar script con 'pcall' seguro
+                    if type(funcToRun) == "function" then
+                        local ok, err = pcall(funcToRun)
+                        if not ok then warn("Script error (function):", err) end
+                    elseif type(funcToRun) == "string" then
+                        local ok, res = pcall(function()
+                            local f, e = loadstring(funcToRun)
+                            if not f then error(e) end
+                            return f()
+                        end)
+                        if not ok then warn("Script error (string):", res) end
+                    else
+                        warn("No script assigned to button:", name)
+                    end
+                end)
+            else
+                -- fallback: destroy and run
+                if gui.screenGui then gui.screenGui:Destroy() end
+                if type(funcToRun) == "function" then pcall(funcToRun) end
+                if type(funcToRun) == "string" then pcall(function() loadstring(funcToRun)() end) end
+            end
         end)
     end
 
-    -- 3) Discord (solo botón copiar)
+    -- ================= Discord (copy) =================
     local discordFrame = new("Frame", {
-        Name = "DiscordFrame",
         Parent = content,
         BackgroundColor3 = Colors.BG,
         Position = UDim2.new(colWidth*2, 0, 0, 18),
@@ -296,7 +312,7 @@ local function createUI()
     new("UICorner", {Parent = discordFrame, CornerRadius = UDim.new(0,12)})
     new("UIStroke", {Parent = discordFrame, Color = Colors.Accent, Thickness = 1})
 
-    local discordTitle = new("TextLabel", {
+    new("TextLabel", {
         Parent = discordFrame,
         BackgroundTransparency = 1,
         Position = UDim2.new(0,12,0,8),
@@ -331,81 +347,177 @@ local function createUI()
     end)
 
     copyBtn.MouseButton1Click:Connect(function()
-        local ok, err = pcall(function()
-            setclipboard(DISCORD_LINK)
-        end)
-        -- Simple feedback: texto temporal
+        local ok = pcall(function() setclipboard(DISCORD_LINK) end)
+        local old = copyBtn.Text
         if ok then
-            local old = copyBtn.Text
             copyBtn.Text = "Copied!"
-            delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = old end end)
         else
-            -- si el exploit no soporta setclipboard, mostrar mensaje
             copyBtn.Text = "Copy failed"
-            delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "📋 Copy Discord" end end)
+        end
+        delay(1.2, function()
+            if copyBtn.Parent then copyBtn.Text = old end
+        end)
+    end)
+
+    -- guardar refs
+    gui.screenGui = screenGui
+    gui.overlay = overlay
+    gui.main = main
+    gui.closeBtn = closeBtn
+    gui.copyBtn = copyBtn
+
+    -- ================= Scanline bars (para la animación) =================
+    -- Creamos varias barras horizontales dentro de main en z-index bajo content
+    local barsHolder = new("Frame", {Parent = main, BackgroundTransparency = 1, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), ZIndex = 1})
+    barsHolder.Name = "BarsHolder"
+    barsHolder.ClipsDescendants = true
+    gui.barsHolder = barsHolder
+
+    local barCount = 12
+    local barHeight = 1 / barCount
+    for i = 1, barCount do
+        local bar = new("Frame", {
+            Parent = barsHolder,
+            Name = "Bar"..i,
+            Position = UDim2.new(0,0, (i-1)*barHeight, 0),
+            Size = UDim2.new(0,0, barHeight, 0),
+            BackgroundColor3 = Colors.Accent,
+            BorderSizePixel = 0,
+            ZIndex = 1
+        })
+        new("UICorner", {Parent = bar, CornerRadius = UDim.new(0,4)})
+    end
+
+    -- Hacer el main draggable desde cualquier parte del frame
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    main.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+            dragInput = input
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    main.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
         end
     end)
 
-    -- Guarda referencias
-    gui.closeBtn = closeBtn
-    gui.overlay = overlay
-    gui.screenGui = screenGui
-
-    -- Hacer que overlay cierre si se clickea fuera (opcional)
-    overlay.MouseButton1Down = overlay.MouseButton1Down or function() end -- overlay es Frame, no Button
+    -- Cerrar overlay con click en fuera (opcional)
+    overlay.MouseButton1Click:Connect(function()
+        -- si haces clic fuera, cerramos
+        if gui and gui.animateClose then
+            gui.animateClose()
+        else
+            if gui.screenGui then gui.screenGui:Destroy() end
+        end
+    end)
 end
 
--- ---------- ANIMACIONES (entrada / salida) ----------
+-- Animación de apertura (scanlines de izquierda a derecha en secuencia)
 local function animateOpen()
+    if not gui or not gui.main or not gui.barsHolder then return end
     local main = gui.main
-    local screenGui = gui.screenGui
-    local overlay = gui.overlay
-
-    overlay.Visible = true
-
-    main.AnchorPoint = Vector2.new(0.5,0.5)
-    main.Position = UDim2.new(0.5,0,0.5,0)
-    main.Size = UDim2.new(0, 520, 0, 280) -- inicio más pequeño
+    local barsHolder = gui.barsHolder
+    gui.overlay.Visible = true
+    -- reiniciar barras a 0 width
+    for i, bar in ipairs(barsHolder:GetChildren()) do
+        if bar:IsA("Frame") then
+            bar.Size = UDim2.new(0,0, bar.Size.Y.Scale, 0)
+            bar.Position = UDim2.new(0,0,bar.Position.Y.Scale,0)
+        end
+    end
+    main.Size = UDim2.new(0,520,0,280) -- inicia más pequeño
     main.BackgroundTransparency = 1
-
-    -- Fade in overlay
-    overlay.BackgroundTransparency = 1
-    TweenService:Create(overlay, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {BackgroundTransparency = 0.5}):Play()
-    -- Scale & reveal main
-    local t1 = TweenService:Create(main, TweenInfo.new(0.28, Enum.EasingStyle.Back), {Size = UDim2.new(0,720,0,380), BackgroundTransparency = 0})
-    t1:Play()
+    -- tween overlay in
+    TweenService:Create(gui.overlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {BackgroundTransparency = 0.5}):Play()
+    -- escala main a tamaño final
+    TweenService:Create(main, TweenInfo.new(0.26, Enum.EasingStyle.Back), {Size = UDim2.new(0,720,0,380), BackgroundTransparency = 0}):Play()
+    -- animar barras secuencialmente (llenan de izquierda a derecha)
+    local delayBetween = 0.03
+    local duration = 0.26
+    local bars = {}
+    for i = 1, #gui.barsHolder:GetChildren() do
+        local bar = gui.barsHolder:FindFirstChild("Bar"..i)
+        if bar then table.insert(bars, bar) end
+    end
+    for i, bar in ipairs(bars) do
+        delay((i-1)*delayBetween, function()
+            TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Quad), {Size = UDim2.new(1,0, bar.Size.Y.Scale, 0)}):Play()
+        end)
+    end
 end
 
-local function animateClose()
+-- Animación de cierre (invoca callback después de destruir)
+local function animateClose(callback)
+    if not gui or not gui.main or not gui.barsHolder then
+        if gui and gui.screenGui then gui.screenGui:Destroy() end
+        if callback then pcall(callback) end
+        return
+    end
     local main = gui.main
-    local overlay = gui.overlay
-    -- shrink and fade
-    local t1 = TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Size = UDim2.new(0,420,0,220), BackgroundTransparency = 1})
-    local t2 = TweenService:Create(overlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {BackgroundTransparency = 1})
-    t1:Play()
-    t2:Play()
-    t1.Completed:Connect(function()
+    local barsHolder = gui.barsHolder
+    -- animar barras al revés (de derecha a izquierda contraer)
+    local bars = {}
+    for i = 1, #barsHolder:GetChildren() do
+        local bar = barsHolder:FindFirstChild("Bar"..i)
+        if bar then table.insert(bars, bar) end
+    end
+    local delayBetween = 0.02
+    local duration = 0.18
+    -- contraer en secuencia inversa
+    for i = #bars, 1, -1 do
+        local bar = bars[i]
+        delay((#bars - i)*delayBetween, function()
+            TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Quad), {Size = UDim2.new(0,0, bar.Size.Y.Scale, 0)}):Play()
+        end)
+    end
+    -- shrink main y fade overlay
+    TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Size = UDim2.new(0,420,0,220), BackgroundTransparency = 1}):Play()
+    TweenService:Create(gui.overlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+    delay(0.26, function()
         if gui and gui.screenGui then
-            gui.screenGui:Destroy()
+            pcall(function() gui.screenGui:Destroy() end)
             gui = {}
         end
+        if callback then
+            -- ejecutar callback en pcall para evitar errores
+            pcall(callback)
+        end
     end)
 end
 
--- ---------- Inicializar y conexiones ----------
-createUI()
--- referencias a main y close (asignadas dentro de createUI)
--- obtener main y close por búsqueda (por si)
-gui.main = gui.main or PlayerGui:FindFirstChild("GalaxyHub_UI") and PlayerGui.GalaxyHub_UI:FindFirstChild("Main")
-gui.closeBtn = gui.closeBtn or (gui.main and gui.main:FindFirstChild("Header") and gui.main.Header:FindFirstChild("CloseBtn"))
+-- Exponer animateClose en gui para que botones la llamen
+gui.animateClose = animateClose
 
--- abrir animación
+-- Inicializar todo
+createUI()
 animateOpen()
 
--- Cerrar con X
+-- Conectar X correctamente (si existe)
 if gui.closeBtn then
     gui.closeBtn.MouseButton1Click:Connect(function()
-        animateClose()
+        if gui and gui.animateClose then
+            gui.animateClose()
+        else
+            if gui.screenGui then gui.screenGui:Destroy() end
+        end
     end)
 end
 
@@ -413,8 +525,6 @@ end
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.Escape then
-        if gui.main and gui.screenGui then
-            animateClose()
-        end
+        if gui and gui.animateClose then gui.animateClose() end
     end
 end)
