@@ -1,380 +1,420 @@
-local player = Players.LocalPlayer
+-- Galaxy Hub (estilo Lunar Hub) - Script completo
+-- Compatible con Delta / Fluxus / Arceus X / Hydrogen, etc.
+-- Hecho con Instance.new y TweenService. Sin librerías externas.
 
-local displayName = player.DisplayName
-if not displayName or displayName == "" then
-    displayName = player.Name
-end
-
-local title = ("Galaxy XVI Paid Version | Welcome %s"):format(displayName)
-
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/CoronaBlanca/25092009UI/refs/heads/main/Xlxrxxm%20bx%20shxryx"))()
-
-local window = library:AddWindow(title, {
-    main_color = Color3.fromRGB(12, 8, 120),
-    min_size = Vector2.new(600, 800),
-    can_resize = true,
-})
-
-local TrollTab = window:AddTab("Troll")
-
-TrollTab:AddLabel("Troll Scripts").TextSize = 24
-
-TrollTab:AddLabel("-----{Black Hole}-----")
-
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Variables globales
-local angle = 1
-local radius = 10
-local blackHoleActive = false
-local humanoidRootPart, Attachment1
+-- ---------- CONFIG (edítalo aquí) ----------
+local DISCORD_LINK = "https://discord.gg/zYrg2qPjTp"
 
---  Configuracin del jugador
-local function setupPlayer()
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+-- Texto que aparecerá en Galaxy Updates (edítalo aqui)
+local UPDATES_TEXT = [[
+⭐ Bienvenido a Galaxy Hub!
 
-    local Folder = Instance.new("Folder", Workspace)
-    Folder.Name = "BlackHoleFolder"
+- Aquí puedes escribir tus notas o actualizaciones directamente en el script.
+- Ejemplo:
+  • Se agregó sistema de rebirths.
+  • Mejoras visuales.
+  • Correcciones de bugs.
 
-    local Part = Instance.new("Part", Folder)
-    local Attachment = Instance.new("Attachment", Part)
-    Part.Anchored = true
-    Part.CanCollide = false
-    Part.Transparency = 1
+(Desliza para ver más...)
+]]
 
-    return humanoidRootPart, Attachment
+-- Nombres de botones en Librarys (los scripts los agregarás tú dentro de los callbacks)
+local LIB_BUTTONS = {"Elerium", "Fluent", "Tottack", "Galaxy"}
+-- ---------- FIN CONFIG ----------
+
+-- Helper: crea instancias con propiedades
+local function new(class, props)
+    local obj = Instance.new(class)
+    if props then
+        for k,v in pairs(props) do obj[k] = v end
+    end
+    return obj
 end
 
-humanoidRootPart, Attachment1 = setupPlayer()
+-- Colores estilo Lunar Hub
+local Colors = {
+    BG = Color3.fromRGB(18, 14, 26),        -- fondo
+    Panel = Color3.fromRGB(22, 18, 36),     -- panel oscuro
+    Accent = Color3.fromRGB(130, 90, 200),  -- morado neón
+    LightText = Color3.fromRGB(200, 180, 255),
+    ButtonHover = Color3.fromRGB(160, 120, 230)
+}
 
---  Sistema de red local
-if not getgenv().Network then
-    getgenv().Network = {
-        BaseParts = {},
-        Velocity = Vector3.new(14.46262424, 14.46262424, 14.46262424)
-    }
+-- Guarda referencias para cerrar/destruir
+local gui = {}
 
-    Network.RetainPart = function(part)
-        if typeof(part) == "Instance" and part:IsA("BasePart") and part:IsDescendantOf(Workspace) then
-            table.insert(Network.BaseParts, part)
-            part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-            part.CanCollide = false
-        end
-    end
+-- ---------- CREAR UI ----------
+local function createUI()
+    -- ScreenGui
+    local screenGui = new("ScreenGui", {Name = "GalaxyHub_UI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
+    screenGui.Parent = PlayerGui
+    gui.screenGui = screenGui
 
-    local function EnablePartControl()
-        LocalPlayer.ReplicationFocus = Workspace
-        RunService.Heartbeat:Connect(function()
-            sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
-            for _, part in pairs(Network.BaseParts) do
-                if part:IsDescendantOf(Workspace) then
-                    part.Velocity = Network.Velocity
-                end
-            end
+    -- Black overlay (ligero) para enfocar
+    local overlay = new("Frame", {
+        Name = "Overlay",
+        Parent = screenGui,
+        BackgroundColor3 = Color3.new(0,0,0),
+        BackgroundTransparency = 0.5,
+        Size = UDim2.new(1,0,1,0),
+        Position = UDim2.new(0,0,0,0),
+        ZIndex = 1
+    })
+    overlay.Visible = false
+    gui.overlay = overlay
+
+    -- Main frame (centrado)
+    local main = new("Frame", {
+        Name = "Main",
+        Parent = screenGui,
+        AnchorPoint = Vector2.new(0.5,0.5),
+        Position = UDim2.new(0.5,0,0.5,0),
+        Size = UDim2.new(0,720,0,380),
+        BackgroundColor3 = Colors.Panel,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    })
+    main.ClipsDescendants = true
+    gui.main = main
+
+    -- Round corners
+    local mainCorner = new("UICorner", {CornerRadius = UDim.new(0, 14), Parent = main})
+    local mainStroke = new("UIStroke", {
+        Parent = main,
+        Color = Colors.Accent,
+        Thickness = 1.5,
+        Transparency = 0.4
+    })
+
+    -- Header (titulo y close)
+    local header = new("Frame", {
+        Name = "Header",
+        Parent = main,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,48),
+        Position = UDim2.new(0,0,0,0)
+    })
+    local title = new("TextLabel", {
+        Name = "Title",
+        Parent = header,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.02,0,0,8),
+        Size = UDim2.new(0.6,0,1,0),
+        Text = "Galaxy Hub",
+        Font = Enum.Font.GothamBold,
+        TextSize = 20,
+        TextColor3 = Colors.LightText,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    -- Close button (X) arriba a la derecha
+    local closeBtn = new("TextButton", {
+        Name = "CloseBtn",
+        Parent = header,
+        AnchorPoint = Vector2.new(1,0),
+        Position = UDim2.new(0.98,0,0,6),
+        Size = UDim2.new(0,36,0,36),
+        BackgroundTransparency = 0,
+        AutoButtonColor = false,
+        BackgroundColor3 = Color3.fromRGB(255,255,255),
+        Text = "✕",
+        Font = Enum.Font.GothamBold,
+        TextSize = 18,
+        TextColor3 = Colors.LightText
+    })
+    new("UICorner", {Parent = closeBtn, CornerRadius = UDim.new(0,8)})
+    local closeStroke = new("UIStroke", {Parent = closeBtn, Color = Colors.Accent, Thickness = 1})
+
+    -- CONTENT: 3 columnas (Updates | Librarys | Discord)
+    local content = new("Frame", {
+        Name = "Content",
+        Parent = main,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,0,0,48),
+        Size = UDim2.new(1,0,1,-48)
+    })
+
+    -- column sizes
+    local colWidth = (1/3)
+
+    -- 1) Galaxy Updates (scrollable)
+    local updatesFrame = new("Frame", {
+        Name = "UpdatesFrame",
+        Parent = content,
+        BackgroundColor3 = Colors.BG,
+        Position = UDim2.new(0,18,0,18),
+        Size = UDim2.new(colWidth, -30, 1, -36),
+        BorderSizePixel = 0
+    })
+    new("UICorner", {Parent = updatesFrame, CornerRadius = UDim.new(0,12)})
+    new("UIStroke", {Parent = updatesFrame, Color = Colors.Accent, Thickness = 1})
+
+    local updatesTitle = new("TextLabel", {
+        Parent = updatesFrame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,12,0,8),
+        Size = UDim2.new(1,-24,0,26),
+        Text = "Galaxy Updates",
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        TextColor3 = Colors.LightText,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    local scroll = new("ScrollingFrame", {
+        Parent = updatesFrame,
+        Name = "Scroll",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,10,0,40),
+        Size = UDim2.new(1,-20,1,-50),
+        CanvasSize = UDim2.new(0,0,0,0),
+        ScrollBarThickness = 6,
+    })
+    local scrollCorner = new("UICorner", {Parent = scroll, CornerRadius = UDim.new(0,8)})
+    local contentHolder = new("Frame", {Parent = scroll, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,0)})
+    contentHolder.Name = "ContentHolder"
+
+    local updatesLabel = new("TextLabel", {
+        Parent = contentHolder,
+        Name = "UpdatesLabel",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,0), -- Height ajustado luego por texto
+        Position = UDim2.new(0,0,0,0),
+        Text = UPDATES_TEXT,
+        Font = Enum.Font.Gotham,
+        TextSize = 14,
+        TextWrapped = true,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextColor3 = Colors.LightText
+    })
+
+    -- Ajusta CanvasSize según contenido
+    updatesLabel:GetPropertyChangedSignal("TextBounds"):Connect(function()
+        local tb = updatesLabel.TextBounds
+        updatesLabel.Size = UDim2.new(1, -6, 0, tb.Y + 8)
+        contentHolder.Size = UDim2.new(1,0,0, tb.Y + 12)
+        scroll.CanvasSize = UDim2.new(0,0,0, tb.Y + 14)
+    end)
+
+    -- 2) Librarys (botones)
+    local libFrame = new("Frame", {
+        Name = "LibrarysFrame",
+        Parent = content,
+        BackgroundColor3 = Colors.BG,
+        Position = UDim2.new(colWidth, 0, 0, 18),
+        Size = UDim2.new(colWidth, -18, 1, -36),
+        BorderSizePixel = 0
+    })
+    new("UICorner", {Parent = libFrame, CornerRadius = UDim.new(0,12)})
+    new("UIStroke", {Parent = libFrame, Color = Colors.Accent, Thickness = 1})
+
+    local libTitle = new("TextLabel", {
+        Parent = libFrame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,12,0,8),
+        Size = UDim2.new(1,-24,0,26),
+        Text = "Librarys",
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        TextColor3 = Colors.LightText,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    local btnContainer = new("Frame", {
+        Parent = libFrame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,10,0,46),
+        Size = UDim2.new(1,-20,1,-56)
+    })
+
+    -- Crear 4 botones (vertical)
+    local btnHeight = 48
+    local spacing = 12
+    for i, name in ipairs(LIB_BUTTONS) do
+        local yPos = (i-1) * (btnHeight + spacing)
+        local b = new("TextButton", {
+            Parent = btnContainer,
+            Name = "Btn_"..name,
+            Position = UDim2.new(0, 0, 0, yPos),
+            Size = UDim2.new(1, 0, 0, btnHeight),
+            BackgroundColor3 = Color3.fromRGB(28,24,44),
+            AutoButtonColor = false,
+            Text = name,
+            Font = Enum.Font.GothamBold,
+            TextSize = 16,
+            TextColor3 = Colors.LightText
+        })
+        new("UICorner", {Parent = b, CornerRadius = UDim.new(0,10)})
+        new("UIStroke", {Parent = b, Color = Colors.Accent, Thickness = 1})
+
+        -- hover effect
+        b.MouseEnter:Connect(function()
+            TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = Colors.ButtonHover}):Play()
         end)
-    end
-
-    EnablePartControl()
-end
-
---  Funcion principal
-local function ForcePart(v)
-    if v:IsA("Part") and not v.Anchored and not v.Parent:FindFirstChild("Humanoid") and not v.Parent:FindFirstChild("Head") and v.Name ~= "Handle" then
-        for _, x in next, v:GetChildren() do
-            if x:IsA("BodyMover") or x:IsA("BodyVelocity") or x:IsA("BodyPosition") or x:IsA("BodyGyro") or x:IsA("Torque") then
-                x:Destroy()
-            end
-        end
-        if v:FindFirstChild("Attachment") then v.Attachment:Destroy() end
-        if v:FindFirstChild("AlignPosition") then v.AlignPosition:Destroy() end
-
-        v.CanCollide = false
-        local Torque = Instance.new("Torque", v)
-        Torque.Torque = Vector3.new(1000000, 1000000, 1000000)
-
-        local AlignPosition = Instance.new("AlignPosition", v)
-        local Attachment2 = Instance.new("Attachment", v)
-        Torque.Attachment0 = Attachment2
-
-        AlignPosition.MaxForce = math.huge
-        AlignPosition.MaxVelocity = math.huge
-        AlignPosition.Responsiveness = 500
-        AlignPosition.Attachment0 = Attachment2
-        AlignPosition.Attachment1 = Attachment1
-    end
-end
-
---  Alternador del agujero negro
-local function toggleBlackHole()
-    blackHoleActive = not blackHoleActive
-    if blackHoleActive then
-        for _, v in next, Workspace:GetDescendants() do
-            ForcePart(v)
-        end
-
-        Workspace.DescendantAdded:Connect(function(v)
-            if blackHoleActive then
-                ForcePart(v)
-            end
+        b.MouseLeave:Connect(function()
+            TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(28,24,44)}):Play()
         end)
 
-        spawn(function()
-            while blackHoleActive and RunService.RenderStepped:Wait() do
-                angle = angle + math.rad(2)
-                local offsetX = math.cos(angle) * radius
-                local offsetZ = math.sin(angle) * radius
-                Attachment1.WorldCFrame = humanoidRootPart.CFrame * CFrame.new(offsetX, 0, offsetZ)
-            end
-        end)
-    else
-        Attachment1.WorldCFrame = CFrame.new(0, -1000, 0)
-    end
-end
-
---  Reasigna si el jugador respawnea
-LocalPlayer.CharacterAdded:Connect(function()
-    humanoidRootPart, Attachment1 = setupPlayer()
-    if blackHoleActive then
-        toggleBlackHole()
-    end
-end)
-
---  Elerium UI (TrollTab)
-local blackHoleFolder = TrollTab:AddFolder("Black Hole")
-
--- Slider para el radio del agujero
-blackHoleFolder:AddSlider({
-    Name = "Black Hole Radius",
-    Min = 1,
-    Max = 100,
-    Default = 10,
-    Callback = function(value)
-        radius = value
-    end
-})
-
--- Switch principal del efecto
-blackHoleFolder:AddSwitch("Activate Black Hole", function(state)
-    if state then
-        if not blackHoleActive then
-            toggleBlackHole()
-        end
-    else
-        if blackHoleActive then
-            toggleBlackHole()
-        end
-    end
-end)
-
-local targetPlayer = nil
-
-local DescendantAddedConnection
-
---  Sistema base
-local Folder = Instance.new("Folder", Workspace)
-Folder.Name = "PullPartsFolder"
-
-local Part = Instance.new("Part", Folder)
-Part.Anchored = true
-Part.CanCollide = false
-Part.Transparency = 1
-
-Attachment1 = Instance.new("Attachment", Part)
-
---  Red (mantiene la simulación activa)
-if not getgenv().Network then
-	getgenv().Network = {
-		BaseParts = {},
-		Velocity = Vector3.new(14.46262424, 14.46262424, 14.46262424)
-	}
-
-	Network.RetainPart = function(Part)
-		if Part:IsA("BasePart") and Part:IsDescendantOf(Workspace) then
-			table.insert(Network.BaseParts, Part)
-			Part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-			Part.CanCollide = false
-		end
-	end
-
-	local function EnablePartControl()
-		LocalPlayer.ReplicationFocus = Workspace
-		RunService.Heartbeat:Connect(function()
-			sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
-			for _, Part in pairs(Network.BaseParts) do
-				if Part:IsDescendantOf(Workspace) then
-					Part.Velocity = Network.Velocity
-				end
-			end
-		end)
-	end
-
-	EnablePartControl()
-end
-
--- Forzar partes físicas
-local function ForcePart(v)
-	if v:IsA("BasePart") and not v.Anchored and not v.Parent:FindFirstChildOfClass("Humanoid") and not v.Parent:FindFirstChild("Head") and v.Name ~= "Handle" then
-		for _, x in ipairs(v:GetChildren()) do
-			if x:IsA("BodyMover") or x:IsA("RocketPropulsion") or x:IsA("Torque") or x:IsA("AlignPosition") then
-				x:Destroy()
-			end
-		end
-		if v:FindFirstChild("Attachment") then v.Attachment:Destroy() end
-
-		v.CanCollide = false
-		local Torque = Instance.new("Torque", v)
-		Torque.Torque = Vector3.new(100000, 100000, 100000)
-
-		local AlignPosition = Instance.new("AlignPosition", v)
-		local Attachment2 = Instance.new("Attachment", v)
-		Torque.Attachment0 = Attachment2
-
-		AlignPosition.MaxForce = math.huge
-		AlignPosition.MaxVelocity = math.huge
-		AlignPosition.Responsiveness = 200
-		AlignPosition.Attachment0 = Attachment2
-		AlignPosition.Attachment1 = Attachment1
-	end
-end
-
--- 🧠 Buscar jugador
-local function getPlayer(name)
-	local lowerName = string.lower(name)
-	for _, p in pairs(Players:GetPlayers()) do
-		if string.find(string.lower(p.Name), lowerName) or string.find(string.lower(p.DisplayName), lowerName) then
-			return p
-		end
-	end
-end
-
---  Activar / desactivar efecto
-local function toggleBlackHole()
-	blackHoleActive = not blackHoleActive
-	if blackHoleActive and targetPlayer then
-		local character = targetPlayer.Character or targetPlayer.CharacterAdded:Wait()
-		humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-
-		for _, v in ipairs(Workspace:GetDescendants()) do
-			ForcePart(v)
-		end
-
-		DescendantAddedConnection = Workspace.DescendantAdded:Connect(function(v)
-			if blackHoleActive then
-				ForcePart(v)
-			end
-		end)
-
-		spawn(function()
-			while blackHoleActive and RunService.RenderStepped:Wait() do
-				if humanoidRootPart then
-					Attachment1.WorldCFrame = humanoidRootPart.CFrame
-				end
-			end
-		end)
-	else
-		if DescendantAddedConnection then
-			DescendantAddedConnection:Disconnect()
-		end
-	end
-end
-
---  UI en Elerium v2
-local pullFolder = TrollTab:AddFolder("Pull Parts")
-
---  Caja de texto para seleccionar jugador
-pullFolder:AddBox({
-	Name = "Player Name",
-	Default = "",
-	Placeholder = "Enter player name...",
-	TextDisappear = false,
-	Callback = function(value)
-		local found = getPlayer(value)
-		if found then
-			targetPlayer = found
-			print(" Player selected:", found.Name)
-		else
-			targetPlayer = nil
-			print(" Player not found.")
-		end
-	end
-})
-
---  Switch principal
-pullFolder:AddSwitch("Pull Parts", function(state)
-	if targetPlayer then
-		if state then
-			if not blackHoleActive then
-				toggleBlackHole()
-			end
-		else
-			if blackHoleActive then
-				toggleBlackHole()
-			end
-		end
-	else
-		print("No player selected.")
-	end
-end)
-
--- 🧩 Switch en TrollTab
-TrollTab:AddSwitch("Become Invisible", function(state)
-    if state then
-        -- 🕶️ Activar invisibilidad FE
-        local args = {
-            [1] = {
-                [1] = 102344834840946,
-                [2] = 70400527171038,
-                [3] = 0,
-                [4] = 0,
-                [5] = 0,
-                [6] = 0
-            }
-        }
-
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-
-        -- Cambiar cuerpo e invisibilizar
-        Remotes:WaitForChild("ChangeCharacterBody"):InvokeServer(unpack(args))
-        Remotes:WaitForChild("Wear"):InvokeServer(111858803548721)
-
-        local allaccessories = {}
-        local humanoid = game.Players.LocalPlayer.Character:WaitForChild("Humanoid")
-        local desc = humanoid and humanoid:FindFirstChildOfClass("HumanoidDescription")
-
-        if desc then
-            for _, accessoryType in ipairs({
-                desc.BackAccessory,
-                desc.FaceAccessory,
-                desc.FrontAccessory,
-                desc.NeckAccessory,
-                desc.HatAccessory,
-                desc.HairAccessory,
-                desc.ShouldersAccessory,
-                desc.WaistAccessory,
-                desc.GraphicTShirt
-            }) do
-                for id in string.gmatch(accessoryType, "%d+") do
-                    table.insert(allaccessories, tonumber(id))
-                end
-            end
-        end
-
-        task.wait()
-
-        for _, accessoryId in ipairs(allaccessories) do
-            task.spawn(function()
-                Remotes:WaitForChild("Wear"):InvokeServer(accessoryId)
-                print("[Invisible FE] Accessory reapplied:", accessoryId)
+        -- Click - placeholder: el usuario añadirá su script aquí
+        b.MouseButton1Click:Connect(function()
+            -- Aquí puedes pegar tu script para cada botón. Ejemplo:
+            -- loadstring("print('Elerium script ejecutado')")()
+            -- Para seguridad, dejé vacío para que tú pegues tu código.
+            pcall(function()
+                -- Ejemplo de notificación visual
+                local notif = new("TextLabel", {
+                    Parent = b,
+                    AnchorPoint = Vector2.new(0.5,0.5),
+                    Position = UDim2.new(0.5,0.5,0,0),
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(0.95,0,0.9,0),
+                    Text = "Executing "..name.." ...",
+                    Font = Enum.Font.Gotham,
+                    TextSize = 14,
+                    TextColor3 = Colors.LightText
+                })
+                game:GetService("Debris"):AddItem(notif, 0.8)
             end)
+        end)
+    end
+
+    -- 3) Discord (solo botón copiar)
+    local discordFrame = new("Frame", {
+        Name = "DiscordFrame",
+        Parent = content,
+        BackgroundColor3 = Colors.BG,
+        Position = UDim2.new(colWidth*2, 0, 0, 18),
+        Size = UDim2.new(colWidth, -18, 1, -36),
+        BorderSizePixel = 0
+    })
+    new("UICorner", {Parent = discordFrame, CornerRadius = UDim.new(0,12)})
+    new("UIStroke", {Parent = discordFrame, Color = Colors.Accent, Thickness = 1})
+
+    local discordTitle = new("TextLabel", {
+        Parent = discordFrame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,12,0,8),
+        Size = UDim2.new(1,-24,0,26),
+        Text = "Discord",
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        TextColor3 = Colors.LightText,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    local copyBtn = new("TextButton", {
+        Parent = discordFrame,
+        Name = "CopyBtn",
+        Position = UDim2.new(0,12,0,46),
+        Size = UDim2.new(1,-24,0,44),
+        BackgroundColor3 = Color3.fromRGB(28,24,44),
+        Text = "📋 Copy Discord",
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        TextColor3 = Colors.LightText,
+        AutoButtonColor = false
+    })
+    new("UICorner", {Parent = copyBtn, CornerRadius = UDim.new(0,10)})
+    new("UIStroke", {Parent = copyBtn, Color = Colors.Accent, Thickness = 1})
+
+    copyBtn.MouseEnter:Connect(function()
+        TweenService:Create(copyBtn, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = Colors.ButtonHover}):Play()
+    end)
+    copyBtn.MouseLeave:Connect(function()
+        TweenService:Create(copyBtn, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(28,24,44)}):Play()
+    end)
+
+    copyBtn.MouseButton1Click:Connect(function()
+        local ok, err = pcall(function()
+            setclipboard(DISCORD_LINK)
+        end)
+        -- Simple feedback: texto temporal
+        if ok then
+            local old = copyBtn.Text
+            copyBtn.Text = "Copied!"
+            delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = old end end)
+        else
+            -- si el exploit no soporta setclipboard, mostrar mensaje
+            copyBtn.Text = "Copy failed"
+            delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "📋 Copy Discord" end end)
         end
-    else
-        --  Si quieres que al apagar el switch reaparezca visible, puedes reiniciar personaje:
-        local lp = game.Players.LocalPlayer
-        lp.Character:BreakJoints()
-        print("[Invisible FE] Visibility reset.")
+    end)
+
+    -- Guarda referencias
+    gui.closeBtn = closeBtn
+    gui.overlay = overlay
+    gui.screenGui = screenGui
+
+    -- Hacer que overlay cierre si se clickea fuera (opcional)
+    overlay.MouseButton1Down = overlay.MouseButton1Down or function() end -- overlay es Frame, no Button
+end
+
+-- ---------- ANIMACIONES (entrada / salida) ----------
+local function animateOpen()
+    local main = gui.main
+    local screenGui = gui.screenGui
+    local overlay = gui.overlay
+
+    overlay.Visible = true
+
+    main.AnchorPoint = Vector2.new(0.5,0.5)
+    main.Position = UDim2.new(0.5,0,0.5,0)
+    main.Size = UDim2.new(0, 520, 0, 280) -- inicio más pequeño
+    main.BackgroundTransparency = 1
+
+    -- Fade in overlay
+    overlay.BackgroundTransparency = 1
+    TweenService:Create(overlay, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {BackgroundTransparency = 0.5}):Play()
+    -- Scale & reveal main
+    local t1 = TweenService:Create(main, TweenInfo.new(0.28, Enum.EasingStyle.Back), {Size = UDim2.new(0,720,0,380), BackgroundTransparency = 0})
+    t1:Play()
+end
+
+local function animateClose()
+    local main = gui.main
+    local overlay = gui.overlay
+    -- shrink and fade
+    local t1 = TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Size = UDim2.new(0,420,0,220), BackgroundTransparency = 1})
+    local t2 = TweenService:Create(overlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {BackgroundTransparency = 1})
+    t1:Play()
+    t2:Play()
+    t1.Completed:Connect(function()
+        if gui and gui.screenGui then
+            gui.screenGui:Destroy()
+            gui = {}
+        end
+    end)
+end
+
+-- ---------- Inicializar y conexiones ----------
+createUI()
+-- referencias a main y close (asignadas dentro de createUI)
+-- obtener main y close por búsqueda (por si)
+gui.main = gui.main or PlayerGui:FindFirstChild("GalaxyHub_UI") and PlayerGui.GalaxyHub_UI:FindFirstChild("Main")
+gui.closeBtn = gui.closeBtn or (gui.main and gui.main:FindFirstChild("Header") and gui.main.Header:FindFirstChild("CloseBtn"))
+
+-- abrir animación
+animateOpen()
+
+-- Cerrar con X
+if gui.closeBtn then
+    gui.closeBtn.MouseButton1Click:Connect(function()
+        animateClose()
+    end)
+end
+
+-- Cerrar con ESC
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Escape then
+        if gui.main and gui.screenGui then
+            animateClose()
+        end
     end
 end)
