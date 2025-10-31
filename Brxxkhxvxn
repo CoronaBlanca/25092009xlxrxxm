@@ -1,4 +1,4 @@
--- Galaxy Hub (estilo Lunar Hub) - Versión avanzada
+-- Galaxy Hub (estilo Lunar Hub) - Versión corregida
 -- Compatible con Delta / Fluxus / Arceus X / Hydrogen...
 -- Hecho con Instance.new y TweenService. Sin libs externas.
 
@@ -28,28 +28,19 @@ local UPDATES_TEXT = [[
 local LIB_BUTTONS = {"Elerium", "Fluent", "Tottack", "Galaxy"}
 
 -- Aquí colocas el código que quieres ejecutar por cada botón.
--- Puedes usar 1) una función, o 2) una string con código y se ejecutará con loadstring.
--- Ejemplos (reemplaza el contenido de cada índice con tu script):
 local LIB_SCRIPTS = {
-    -- 1) Ejemplo con función:
     function()
-        -- Ejemplo: print; reemplaza con tu script
         print("Elerium script ejecutado")
-        -- Si tu script usa loadstring, puedes llamarlo aquí.
     end,
 
-    -- 2) Ejemplo con string (se cargará con loadstring):
     [[
-    -- Fluent script (ejemplo)
     print("Fluent script ejecutado")
     ]],
 
-    -- 3) Otro ejemplo como función
     function()
         print("Tottack script ejecutado")
     end,
 
-    -- 4) Como string
     [[
     print("Galaxy script ejecutado")
     ]]
@@ -85,18 +76,17 @@ local function createUI()
     screenGui.Parent = PlayerGui
     gui.screenGui = screenGui
 
-    -- overlay oscuro
-    local overlay = new("ImageButton", {
+    -- overlay oscuro - CAMBIADO: ahora es Frame en lugar de ImageButton
+    local overlay = new("Frame", {
         Name = "Overlay",
         Parent = screenGui,
-        BackgroundColor3 = Color3.new(0,0,0),
+        BackgroundColor3 = Color3.fromRGB(0,0,0), -- Negro puro
         BackgroundTransparency = 0.6,
         Size = UDim2.new(1,0,1,0),
         Position = UDim2.new(0,0,0,0),
-        AutoButtonColor = false,
+        BorderSizePixel = 0,
+        ZIndex = 1
     })
-    overlay.Image = ""
-    overlay.ZIndex = 1
     gui.overlay = overlay
 
     -- main frame centrado
@@ -144,7 +134,7 @@ local function createUI()
         Size = UDim2.new(0,36,0,36),
         BackgroundTransparency = 0,
         AutoButtonColor = false,
-        BackgroundColor3 = Color3.fromRGB(255,255,255),
+        BackgroundColor3 = Color3.fromRGB(40,30,60),
         Text = "✕",
         Font = Enum.Font.GothamBold,
         TextSize = 18,
@@ -269,15 +259,11 @@ local function createUI()
             TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(28,24,44)}):Play()
         end)
 
-        -- Conexión: al click -> cerrar UI con animación y luego ejecutar script correspondiente
         b.MouseButton1Click:Connect(function()
-            -- cerrar UI y ejecutar script en callback
             local idx = i
             local funcToRun = LIB_SCRIPTS[idx]
-            -- animamos cierre y luego ejecutamos
             if gui and gui.animateClose then
                 gui.animateClose(function()
-                    -- ejecutar script con 'pcall' seguro
                     if type(funcToRun) == "function" then
                         local ok, err = pcall(funcToRun)
                         if not ok then warn("Script error (function):", err) end
@@ -293,7 +279,6 @@ local function createUI()
                     end
                 end)
             else
-                -- fallback: destroy and run
                 if gui.screenGui then gui.screenGui:Destroy() end
                 if type(funcToRun) == "function" then pcall(funcToRun) end
                 if type(funcToRun) == "string" then pcall(function() loadstring(funcToRun)() end) end
@@ -350,24 +335,18 @@ local function createUI()
         local ok = pcall(function() setclipboard(DISCORD_LINK) end)
         local old = copyBtn.Text
         if ok then
-            copyBtn.Text = "Copied!"
+            copyBtn.Text = "✅ Copied!"
         else
-            copyBtn.Text = "Copy failed"
+            copyBtn.Text = "❌ Copy failed"
         end
         delay(1.2, function()
             if copyBtn.Parent then copyBtn.Text = old end
         end)
     end)
 
-    -- guardar refs
-    gui.screenGui = screenGui
-    gui.overlay = overlay
-    gui.main = main
-    gui.closeBtn = closeBtn
     gui.copyBtn = copyBtn
 
     -- ================= Scanline bars (para la animación) =================
-    -- Creamos varias barras horizontales dentro de main en z-index bajo content
     local barsHolder = new("Frame", {Parent = main, BackgroundTransparency = 1, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), ZIndex = 1})
     barsHolder.Name = "BarsHolder"
     barsHolder.ClipsDescendants = true
@@ -388,14 +367,14 @@ local function createUI()
         new("UICorner", {Parent = bar, CornerRadius = UDim.new(0,4)})
     end
 
-    -- Hacer el main draggable desde cualquier parte del frame
+    -- Hacer el main draggable SOLO desde el header
     local dragging, dragInput, dragStart, startPos
     local function update(input)
         local delta = input.Position - dragStart
         main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 
-    main.InputBegan:Connect(function(input)
+    header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
@@ -408,48 +387,42 @@ local function createUI()
             end)
         end
     end)
-    main.InputChanged:Connect(function(input)
+    
+    header.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             dragInput = input
         end
     end)
+    
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             update(input)
         end
     end)
 
-    -- Cerrar overlay con click en fuera (opcional)
-    overlay.MouseButton1Click:Connect(function()
-        -- si haces clic fuera, cerramos
-        if gui and gui.animateClose then
-            gui.animateClose()
-        else
-            if gui.screenGui then gui.screenGui:Destroy() end
-        end
-    end)
+    -- REMOVIDO: El evento del overlay que cerraba la UI
 end
 
--- Animación de apertura (scanlines de izquierda a derecha en secuencia)
+-- Animación de apertura
 local function animateOpen()
     if not gui or not gui.main or not gui.barsHolder then return end
     local main = gui.main
     local barsHolder = gui.barsHolder
     gui.overlay.Visible = true
-    -- reiniciar barras a 0 width
+    
     for i, bar in ipairs(barsHolder:GetChildren()) do
         if bar:IsA("Frame") then
             bar.Size = UDim2.new(0,0, bar.Size.Y.Scale, 0)
             bar.Position = UDim2.new(0,0,bar.Position.Y.Scale,0)
         end
     end
-    main.Size = UDim2.new(0,520,0,280) -- inicia más pequeño
+    
+    main.Size = UDim2.new(0,520,0,280)
     main.BackgroundTransparency = 1
-    -- tween overlay in
+    
     TweenService:Create(gui.overlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {BackgroundTransparency = 0.5}):Play()
-    -- escala main a tamaño final
     TweenService:Create(main, TweenInfo.new(0.26, Enum.EasingStyle.Back), {Size = UDim2.new(0,720,0,380), BackgroundTransparency = 0}):Play()
-    -- animar barras secuencialmente (llenan de izquierda a derecha)
+    
     local delayBetween = 0.03
     local duration = 0.26
     local bars = {}
@@ -464,53 +437,54 @@ local function animateOpen()
     end
 end
 
--- Animación de cierre (invoca callback después de destruir)
+-- Animación de cierre
 local function animateClose(callback)
     if not gui or not gui.main or not gui.barsHolder then
         if gui and gui.screenGui then gui.screenGui:Destroy() end
         if callback then pcall(callback) end
         return
     end
+    
     local main = gui.main
     local barsHolder = gui.barsHolder
-    -- animar barras al revés (de derecha a izquierda contraer)
+    
     local bars = {}
     for i = 1, #barsHolder:GetChildren() do
         local bar = barsHolder:FindFirstChild("Bar"..i)
         if bar then table.insert(bars, bar) end
     end
+    
     local delayBetween = 0.02
     local duration = 0.18
-    -- contraer en secuencia inversa
+    
     for i = #bars, 1, -1 do
         local bar = bars[i]
         delay((#bars - i)*delayBetween, function()
             TweenService:Create(bar, TweenInfo.new(duration, Enum.EasingStyle.Quad), {Size = UDim2.new(0,0, bar.Size.Y.Scale, 0)}):Play()
         end)
     end
-    -- shrink main y fade overlay
+    
     TweenService:Create(main, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Size = UDim2.new(0,420,0,220), BackgroundTransparency = 1}):Play()
     TweenService:Create(gui.overlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+    
     delay(0.26, function()
         if gui and gui.screenGui then
             pcall(function() gui.screenGui:Destroy() end)
             gui = {}
         end
         if callback then
-            -- ejecutar callback en pcall para evitar errores
             pcall(callback)
         end
     end)
 end
 
--- Exponer animateClose en gui para que botones la llamen
 gui.animateClose = animateClose
 
--- Inicializar todo
+-- Inicializar
 createUI()
 animateOpen()
 
--- Conectar X correctamente (si existe)
+-- Conectar botón X
 if gui.closeBtn then
     gui.closeBtn.MouseButton1Click:Connect(function()
         if gui and gui.animateClose then
